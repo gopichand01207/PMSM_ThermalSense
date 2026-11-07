@@ -68,45 +68,41 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         0.0,
     )
 
-    # ── 6. Thermal-lag rolling features (computed per session) ────────────────
-    def _add_rolling(grp: pd.DataFrame) -> pd.DataFrame:
-        grp = grp.copy()
+    # ── 6-7. Rolling thermal-lag + rate-of-change features (per session) ────────
+    # Process each session independently with a plain loop + concat to avoid
+    # pandas 2.x groupby().apply() promoting session_id into the index.
+    session_chunks = []
+    for sid, grp in df.groupby("session_id", sort=False):
+        g = grp.copy()
+        # Rolling thermal-lag windows
         for col in ["P_loss_total_W", "P_copper_W", "i_s_A", "speed_rpm"]:
             for win, tag in [(WIN_SHORT, "10s"), (WIN_MEDIUM, "60s"), (WIN_LONG, "300s")]:
-                grp[f"{col}_mean_{tag}"] = (
-                    grp[col].rolling(win, min_periods=1).mean().astype(np.float32)
+                g[f"{col}_mean_{tag}"] = (
+                    g[col].rolling(win, min_periods=1).mean().astype(np.float32)
                 )
-        # Energy accumulation proxy: cumulative loss within session (Joules)
-        grp["cum_loss_J"] = (grp["P_loss_total_W"] * (1 / SAMPLE_HZ)).cumsum().astype(np.float32)
-        # ── Rate-of-change features (computed here to stay within session scope) ──
-        grp["di_s_dt"]    = grp["i_s_A"].diff().fillna(0) * SAMPLE_HZ
-        grp["dspeed_dt"]  = grp["speed_rpm"].diff().fillna(0) * SAMPLE_HZ
-        grp["dP_loss_dt"] = grp["P_loss_total_W"].diff().fillna(0) * SAMPLE_HZ
-        return grp
+        # Cumulative energy in session (Joules)
+        g["cum_loss_J"] = (g["P_loss_total_W"] / SAMPLE_HZ).cumsum().astype(np.float32)
+        # Rate-of-change (within session so boundary doesn't bleed across sessions)
+        g["di_s_dt"]    = g["i_s_A"].diff().fillna(0).astype(np.float32) * SAMPLE_HZ
+        g["dspeed_dt"]  = g["speed_rpm"].diff().fillna(0).astype(np.float32) * SAMPLE_HZ
+        g["dP_loss_dt"] = g["P_loss_total_W"].diff().fillna(0).astype(np.float32) * SAMPLE_HZ
+        # High-load duty cycle
+        g["high_load_flag"]     = (g["i_s_A"] > HIGH_LOAD_THRESHOLD).astype(np.float32)
+        g["high_load_duty_60s"] = (
+            g["high_load_flag"].rolling(WIN_MEDIUM, min_periods=1).mean().astype(np.float32)
+        )
+        session_chunks.append(g)
 
-    df = df.groupby("session_id", group_keys=False).apply(_add_rolling)
-    df = df.reset_index(drop=True)   # ensure session_id stays as column, not index
+    df = pd.concat(session_chunks, ignore_index=True)   # integer index, all cols preserved
 
     # ── 8. Interaction features ───────────────────────────────────────────────
-    df["speed_x_I2"]  = df["speed_rpm"] * df["i_s_A"] ** 2   # combined thermal load
-    df["torque_x_speed"] = df["torque_Nm"] * df["speed_rpm"] / 9550   # mechanical power (kW approx)
+    df["speed_x_I2"]     = df["speed_rpm"] * df["i_s_A"] ** 2
+    df["torque_x_speed"] = df["torque_Nm"] * df["speed_rpm"] / 9550
 
     # ── 9. Coolant delta-T ────────────────────────────────────────────────────
-    df["coolant_dT"]  = df["coolant_temp_C"] - df["ambient_temp_C"]
+    df["coolant_dT"] = df["coolant_temp_C"] - df["ambient_temp_C"]
 
-    # ── 10. High-load duty-cycle proxy ────────────────────────────────────────
-    df["high_load_flag"] = (df["i_s_A"] > HIGH_LOAD_THRESHOLD).astype(np.float32)
-    # Use apply (same pattern as _add_rolling) to avoid index promotion issues
-    def _duty(grp):
-        grp = grp.copy()
-        grp["high_load_duty_60s"] = (
-            grp["high_load_flag"].rolling(WIN_MEDIUM, min_periods=1).mean().astype(np.float32)
-        )
-        return grp
-    df = df.groupby("session_id", group_keys=False).apply(_duty)
-    df = df.reset_index(drop=True)
-
-    # ── 11. Stator winding temperature (observable in real system) ────────────
+    # ── 10. Stator winding temperature (observable in real system) ────────────
     #    Used as a conditioning feature – this IS measurable via thermistor.
     #    PM temp is NOT directly measurable → that is our prediction target.
     # (column already present as stator_winding_temp_C)
