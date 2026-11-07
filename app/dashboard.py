@@ -26,9 +26,8 @@ import plotly.express as px
 from PIL import Image
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(BASE_DIR, "features"))
-sys.path.insert(0, os.path.join(BASE_DIR, "models"))
-sys.path.insert(0, os.path.join(BASE_DIR, "control"))
+# Add project root so all packages (control, features, models, data) are importable
+sys.path.insert(0, BASE_DIR)
 
 PLOTS_DIR      = os.path.join(BASE_DIR, "plots")
 MODEL_DIR      = os.path.join(BASE_DIR, "saved_models")
@@ -76,7 +75,7 @@ def load_data_preview():
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.image("https://via.placeholder.com/280x60/1a1a2e/e74c3c?text=PMSM+ThermalSense",
-                 use_column_width=True)
+                 use_container_width=True)
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("", [
     "📊 Overview",
@@ -208,7 +207,7 @@ elif page == "🔥 Thermal Sensor Model":
         img = load_img("prediction_scatter.png")
         if img:
             st.image(img, caption="Actual vs Predicted PM Temperature (5,000 test-set samples)",
-                     use_column_width=True)
+                     use_container_width=True)
         else:
             st.info("Run the pipeline to generate plots.")
 
@@ -216,14 +215,14 @@ elif page == "🔥 Thermal Sensor Model":
         img = load_img("feature_importance.png")
         if img:
             st.image(img, caption="Top-25 XGBoost Feature Importances (Gain)",
-                     use_column_width=True)
+                     use_container_width=True)
         else:
             st.info("Run the pipeline to generate plots.")
 
     with tab3:
         img = load_img("residual_distribution.png")
         if img:
-            st.image(img, caption="Prediction Residual Distribution", use_column_width=True)
+            st.image(img, caption="Prediction Residual Distribution", use_container_width=True)
         else:
             st.info("Run the pipeline to generate plots.")
 
@@ -279,7 +278,7 @@ elif page == "🛡️ Protection Controller":
         img = load_img("derate_curve.png")
         if img:
             st.image(img, caption="PM Temperature vs Allowed Peak Current",
-                     use_column_width=True)
+                     use_container_width=True)
         else:
             st.info("Run `python control/thermal_protection.py` or the pipeline.")
 
@@ -301,7 +300,7 @@ elif page == "🛡️ Protection Controller":
         img = load_img("thermal_protection_scenario.png")
         if img:
             st.image(img, caption="Stress Scenario: PM Temp Rise, Current Limiting, State Machine",
-                     use_column_width=True)
+                     use_container_width=True)
         else:
             st.info("Run the pipeline to generate plots.")
 
@@ -317,7 +316,7 @@ elif page == "🚗 Drive-Cycle View":
     img = load_img("drive_cycle_trace.png")
     if img:
         st.image(img, caption="Highway Drive-Cycle: Actual vs XGBoost-Predicted PM Temperature",
-                 use_column_width=True)
+                 use_container_width=True)
     else:
         st.info("Run the pipeline to generate plots.")
 
@@ -325,7 +324,7 @@ elif page == "🚗 Drive-Cycle View":
     img2 = load_img("learning_curve.png")
     if img2:
         st.subheader("📈 XGBoost Training Learning Curve")
-        st.image(img2, use_column_width=True)
+        st.image(img2, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -345,8 +344,7 @@ elif page == "🧪 Live Simulator":
         st.stop()
 
     import xgboost as xgb
-    sys.path.insert(0, os.path.join(BASE_DIR, "features"))
-    from feature_engineering import get_feature_columns
+    from features.feature_engineering import get_feature_columns
     from control.thermal_protection import ThermalProtectionController
 
     FEAT_COLS = get_feature_columns()
