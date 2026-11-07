@@ -1,0 +1,12 @@
+data/motor_telemetry.parquet
+data/motor_telemetry_features.parquet
+data/motor_telemetry_preview.csv
+saved_models/*.json
+saved_models/*.pkl
+saved_models/protection_events.csv
+plots/
+__pycache__/
+*/__pycache__/
+*.pyc
+.DS_Store
+.env
