@@ -1,24 +1,46 @@
 # ⚡ PMSM ThermalSense – Virtual Rotor-Magnet Temperature Sensor
 
-> *Resume project demonstrating end-to-end physics-guided ML for electric motor thermal management.*
+> *Resume project demonstrating end-to-end physics-guided ML for electric motor thermal management and active current de-rating control.*
+
+[![Report](https://img.shields.io/badge/Project_Report-23_Pages_PDF-blue?logo=adobeacrobatreader)](PMSM_ThermalSense_ProjectReport.pdf)
+[![Python](https://img.shields.io/badge/Python-3.10+-brightgreen?logo=python)](https://python.org)
+[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-orange?logo=xgboost)](https://xgboost.readthedocs.io)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red?logo=streamlit)](https://streamlit.io)
 
 ---
 
 ## 📌 Project Summary
 
-**PMSM ThermalSense** builds a **virtual temperature sensor** for the rotor permanent magnets
-of a Permanent-Magnet Synchronous Motor (PMSM) using XGBoost and physics-based feature engineering —
-eliminating the need for expensive physical rotor thermocouples.
+**PMSM ThermalSense** builds an automotive-grade **virtual temperature sensor** for the rotor permanent magnets
+of an Interior Permanent-Magnet Synchronous Motor (IPMSM) using XGBoost and physics-based feature engineering —
+eliminating the need for expensive physical rotor thermocouples (saving ₹50,000–₹2,00,000 per unit in BOM cost).
 
 | Capability | Details |
 |---|---|
-| **Dataset** | 185 hours / 1.33 M rows of synthetic motor test-bench data (7.2 Hz) |
-| **Physics Features** | Copper loss (I²R), iron loss (Bertotti), thermal-lag rolling windows, rate-of-change |
-| **ML Model** | XGBoost virtual sensor — MAE **1.4 °C**, R² **98.6%** |
-| **Drive Cycles** | Urban, Highway, WLTP, Constant-speed, Transient (37 sessions) |
-| **Thermal Model** | 2-RC ODE network: copper + iron loss → winding → PM conduction |
-| **Protection Algorithm** | 115 °C trigger → linear de-rate → 130 °C hard limit (60 A floor) |
-| **Dashboard** | Streamlit + Plotly with live simulator |
+| **Technical Report** | 📄 **[Download 23-Page PDF Report](PMSM_ThermalSense_ProjectReport.pdf)** (with all 7 figures & interview Q&As) |
+| **Dataset** | 185 hours / 1.33 M rows of synthetic motor test-bench data (7.2 Hz) across 37 sessions |
+| **Physics Features** | 40 features: Copper loss (I²R), iron loss (Bertotti), multi-timescale thermal lag (10s, 60s, 300s) |
+| **ML Model** | XGBoost virtual sensor — **MAE 1.4 °C**, **R² 98.6%** (held-out drive sessions) |
+| **Drive Cycles** | Urban, Highway, WLTP standard, Constant-speed, Transient |
+| **Thermal Network** | 2-RC ODE system: copper + iron losses → stator winding → conduction to PM |
+| **Protection Controller** | Active 3-state current governor: 115 °C trigger → linear de-rate (16 A/°C) → 130 °C hard floor (60 A) |
+| **Dashboard** | 5-page interactive Streamlit dashboard with real-time parameter simulator |
+
+---
+
+## 🖼️ Visual Proof & Diagnostics
+
+<div align="center">
+
+| Virtual Sensor Accuracy (MAE 1.4°C, R² 98.6%) | Top Physics Features (Gain Ranking) |
+|:---:|:---:|
+| <img src="plots/prediction_scatter.png" width="400"/> | <img src="plots/feature_importance.png" width="400"/> |
+
+| Highway Drive-Cycle PM Temperature Tracking | Closed-Loop Thermal Protection Stress Test |
+|:---:|:---:|
+| <img src="plots/drive_cycle_trace.png" width="400"/> | <img src="plots/thermal_protection_scenario.png" width="400"/> |
+
+</div>
 
 ---
 
@@ -26,27 +48,41 @@ eliminating the need for expensive physical rotor thermocouples.
 
 ```
 PMSM_ThermalSense/
+├── PMSM_ThermalSense_ProjectReport.pdf  # 23-page comprehensive technical report
 ├── data/
-│   ├── generate_data.py            # Synthetic 185-h PMSM telemetry generator
-│   ├── motor_telemetry.parquet     # Full dataset (auto-generated)
-│   └── motor_telemetry_preview.csv # First 50 k rows CSV (auto-generated)
+│   ├── generate_data.py                 # Synthetic 185-h PMSM telemetry generator
+│   └── motor_telemetry.parquet          # Full dataset (1.33M rows, generated)
 │
 ├── features/
-│   └── feature_engineering.py     # 40 physics-based features
+│   └── feature_engineering.py          # 40 physics-based features
 │
 ├── models/
-│   └── train_xgboost.py           # XGBoost virtual sensor (MAE 1.4°C, R²=98.6%)
+│   └── train_xgboost.py                # XGBoost virtual sensor (MAE 1.4°C, R²=98.6%)
 │
 ├── control/
-│   └── thermal_protection.py      # 115°C → current de-rate control algorithm
+│   └── thermal_protection.py           # 115°C → current de-rate control algorithm
 │
 ├── app/
-│   └── dashboard.py               # Streamlit interactive dashboard
+│   └── dashboard.py                    # Streamlit interactive dashboard
 │
-├── saved_models/                  # Trained model + scaler (auto-generated)
-├── plots/                         # All chart PNGs (auto-generated)
+├── scripts/
+│   └── generate_report.py              # ReportLab script compiling 23-page PDF report
 │
-├── run_pipeline.py                # One-command full pipeline runner
+├── saved_models/                       # Trained model, scaler, and event logs
+│   ├── xgb_pm_temp.json
+│   ├── scaler.pkl
+│   └── protection_events.csv
+│
+├── plots/                              # High-resolution evaluation charts
+│   ├── prediction_scatter.png
+│   ├── feature_importance.png
+│   ├── residual_distribution.png
+│   ├── learning_curve.png
+│   ├── drive_cycle_trace.png
+│   ├── derate_curve.png
+│   └── thermal_protection_scenario.png
+│
+├── run_pipeline.py                     # One-command full pipeline runner
 ├── requirements.txt
 └── README.md
 ```

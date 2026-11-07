@@ -1,13 +1,13 @@
+# Large raw and feature parquet datasets (>1.2GB)
 data/motor_telemetry.parquet
 data/motor_telemetry_features.parquet
 data/motor_telemetry_preview.csv
-saved_models/*.json
-saved_models/*.pkl
-saved_models/protection_events.csv
-plots/
+
+# Python byte-code and cache
 __pycache__/
 */__pycache__/
 *.pyc
+
+# Environment and OS files
 .DS_Store
 .env
-
