@@ -472,3 +472,4 @@ elif page == "🧪 Live Simulator":
     ))
     fig.update_layout(height=300)
     st.plotly_chart(fig, use_container_width=True)
+

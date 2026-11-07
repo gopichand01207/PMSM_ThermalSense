@@ -258,3 +258,4 @@ if __name__ == "__main__":
     OUT_DIR = os.path.join(os.path.dirname(__file__))
     df = generate_sessions()
     save_data(df, OUT_DIR)
+

@@ -78,14 +78,14 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
                 )
         # Energy accumulation proxy: cumulative loss within session (Joules)
         grp["cum_loss_J"] = (grp["P_loss_total_W"] * (1 / SAMPLE_HZ)).cumsum().astype(np.float32)
+        # ── Rate-of-change features (computed here to stay within session scope) ──
+        grp["di_s_dt"]    = grp["i_s_A"].diff().fillna(0) * SAMPLE_HZ
+        grp["dspeed_dt"]  = grp["speed_rpm"].diff().fillna(0) * SAMPLE_HZ
+        grp["dP_loss_dt"] = grp["P_loss_total_W"].diff().fillna(0) * SAMPLE_HZ
         return grp
 
     df = df.groupby("session_id", group_keys=False).apply(_add_rolling)
-
-    # ── 7. Rate-of-change features ────────────────────────────────────────────
-    df["di_s_dt"]     = df.groupby("session_id")["i_s_A"].diff().fillna(0) * SAMPLE_HZ
-    df["dspeed_dt"]   = df.groupby("session_id")["speed_rpm"].diff().fillna(0) * SAMPLE_HZ
-    df["dP_loss_dt"]  = df.groupby("session_id")["P_loss_total_W"].diff().fillna(0) * SAMPLE_HZ
+    df = df.reset_index(drop=True)   # ensure session_id stays as column, not index
 
     # ── 8. Interaction features ───────────────────────────────────────────────
     df["speed_x_I2"]  = df["speed_rpm"] * df["i_s_A"] ** 2   # combined thermal load
@@ -96,11 +96,15 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── 10. High-load duty-cycle proxy ────────────────────────────────────────
     df["high_load_flag"] = (df["i_s_A"] > HIGH_LOAD_THRESHOLD).astype(np.float32)
-    df["high_load_duty_60s"] = (
-        df.groupby("session_id")["high_load_flag"]
-          .transform(lambda x: x.rolling(WIN_MEDIUM, min_periods=1).mean())
-          .astype(np.float32)
-    )
+    # Use apply (same pattern as _add_rolling) to avoid index promotion issues
+    def _duty(grp):
+        grp = grp.copy()
+        grp["high_load_duty_60s"] = (
+            grp["high_load_flag"].rolling(WIN_MEDIUM, min_periods=1).mean().astype(np.float32)
+        )
+        return grp
+    df = df.groupby("session_id", group_keys=False).apply(_duty)
+    df = df.reset_index(drop=True)
 
     # ── 11. Stator winding temperature (observable in real system) ────────────
     #    Used as a conditioning feature – this IS measurable via thermistor.
@@ -185,3 +189,4 @@ if __name__ == "__main__":
     df_feat.to_parquet(out, index=False)
     print(f"✓ Feature dataset saved → {out}")
     print(f"  Shape: {df_feat.shape}  |  Features: {len(get_feature_columns())}")
+
